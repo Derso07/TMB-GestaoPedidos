@@ -10,4 +10,8 @@
     <Folder Include="Controllers\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\tmb.pedidos.Infrastructure\tmb.pedidos.Infrastructure.csproj" />
+  </ItemGroup>
+
 </Project>
