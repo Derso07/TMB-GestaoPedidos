@@ -6,5 +6,5 @@ public interface IOrderService
 {
     Task Insert(Order order);
     Task<List<Order>> GetAll();
-    Task GetById(Guid id);
+    Task<Order> GetById(Guid id);
 }

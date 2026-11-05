@@ -6,6 +6,9 @@ namespace tmb.pedidos.Infrastructure.Persistence;
 public class PedidosDbContext : DbContext
 {
     public PedidosDbContext(DbContextOptions<PedidosDbContext> options) :  base(options) { }
+
+    public DbSet<Order> Orders{ get; set; }
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder) 
     { 
         modelBuilder.Entity<Order>(entity => 

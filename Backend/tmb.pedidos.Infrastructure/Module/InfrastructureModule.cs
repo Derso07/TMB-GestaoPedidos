@@ -16,7 +16,7 @@ namespace tmb.pedidos.Infrastructure.Module;
 
         private static IServiceCollection AddServices(this IServiceCollection services, IConfiguration configuration)
         {
-            var connectionString = configuration.GetConnectionString("ConnectionString");
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
 
             services.AddDbContext<PedidosDbContext>(options =>
                 options.UseNpgsql(connectionString));
