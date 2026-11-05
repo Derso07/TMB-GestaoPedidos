@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using tmb.pedidos.API.Contracts.Orders;
+using tmb.pedidos.API.Mappers;
 using tmb.pedidos.API.Services.Orders;
-using tmb.pedidos.Domain.Request;
 
 namespace tmb.pedidos.API.Controllers;
 
@@ -25,13 +26,13 @@ public class OrderController : ControllerBase
     public async Task<IActionResult> Create([FromBody]OrderRequest orderRequest, 
         CancellationToken cancellationToken)
     {
-        var order = await _createOrderService.CreateAsync(orderRequest.customer, orderRequest.Product,
+        var order = await _createOrderService.CreateAsync(orderRequest.Customer, orderRequest.Product,
             orderRequest.Value, cancellationToken);
 
         return CreatedAtAction(
             nameof(GetById),
             new { id = order.Id },
-            order);
+            OrderMapper.ToResponse(order));
     }
 
     [HttpGet]
@@ -39,7 +40,7 @@ public class OrderController : ControllerBase
     {
         var orders = await _getOrdersService.GetOrdersAsync(cancellationToken);
         
-        return Ok(orders);
+        return Ok(OrderMapper.ToResponse(orders));
     }
 
     [HttpGet("{id}")]

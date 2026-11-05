@@ -7,7 +7,7 @@ namespace tmb.pedidos.Infrastructure.Repositories;
 
 public class OrderRepository : IOrderService
 {
-    private readonly PedidosDbContext  _pedidosDbContext;
+    private readonly PedidosDbContext _pedidosDbContext;
 
     public OrderRepository(PedidosDbContext pedidosDbContext)
     {
@@ -22,21 +22,25 @@ public class OrderRepository : IOrderService
 
     public async Task Update(Order order, CancellationToken cancellationToken)
     {
-        var _order = await GetById(order.Id, cancellationToken);
-        
-        _pedidosDbContext.Update(_order);
+        foreach (var entry in _pedidosDbContext.ChangeTracker.Entries())
+        {
+            Console.WriteLine(
+                $"Entity: {entry.Entity.GetType().Name} | State: {entry.State}");
+        }
         await _pedidosDbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<List<Order>> GetAll(CancellationToken cancellationToken)
     {
-        return await _pedidosDbContext.Orders.ToListAsync(cancellationToken: cancellationToken);
+        return await _pedidosDbContext.Orders
+            .OrderByDescending(o => o.CreatOn)
+            .ToListAsync(cancellationToken: cancellationToken);
     }
 
     public async Task<Order?> GetById(Guid id,CancellationToken cancellationToken)
     {
         return await _pedidosDbContext.Orders
-            .Where(o => o.Id == id)
-            .FirstOrDefaultAsync();
+            .Include(o => o.StatusHistory)
+            .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
     }
 }

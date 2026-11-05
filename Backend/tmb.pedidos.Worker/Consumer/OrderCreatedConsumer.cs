@@ -137,13 +137,18 @@ public class OrderCreatedConsumer : BackgroundService
                 deliveryTag: eventArgs.DeliveryTag,
                 multiple: false);
         }
+        catch (OperationCanceledException)
+            when (cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogInformation(
+                "Processamento cancelado porque o Worker está sendo encerrado.");
+        }
         catch (Exception exception)
         {
             _logger.LogError(
                 exception,
                 "Erro ao processar mensagem do pedido.");
 
-            // Recoloca a mensagem na fila.
             _channel.BasicNack(
                 deliveryTag: eventArgs.DeliveryTag,
                 multiple: false,

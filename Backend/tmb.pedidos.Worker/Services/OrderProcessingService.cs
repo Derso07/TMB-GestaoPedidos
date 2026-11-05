@@ -20,58 +20,96 @@ public class OrderProcessingService
         Guid orderId,
         CancellationToken cancellationToken)
     {
-        using var scope = _scopeFactory.CreateScope();
-
-        var orderRepository =
-            scope.ServiceProvider
-                .GetRequiredService<IOrderService>();
-
-        var order = await orderRepository.GetById(
-            orderId,
-            cancellationToken);
-
-        if (order is null)
-        {
-            _logger.LogWarning(
-                "Pedido {OrderId} não encontrado.",
-                orderId);
-
-            return;
-        }
-
-        // Idempotência básica
-        if (order.OrderStatus != OrderStatus.Pending)
-        {
-            _logger.LogInformation(
-                "Pedido {OrderId} já foi processado ou está em processamento. Status atual: {Status}",
-                orderId,
-                order.OrderStatus);
-
-            return;
-        }
-
-        order.OrderStatus = OrderStatus.Processing;
-
-        await orderRepository.Update(
-            order,
-            cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
 
         _logger.LogInformation(
-            "Pedido {OrderId} alterado para Processando.",
-            orderId);
+            "Iniciando processamento do pedido {OrderId}. Token cancelado: {IsCancellationRequested}",
+            orderId,
+            cancellationToken.IsCancellationRequested);
 
+        // Primeiro escopo: buscar e mudar para Processing
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var orderRepository = scope.ServiceProvider
+                .GetRequiredService<IOrderService>();
+
+            var order = await orderRepository.GetById(
+                orderId,
+                cancellationToken);
+
+            if (order is null)
+            {
+                _logger.LogWarning(
+                    "Pedido {OrderId} não encontrado.",
+                    orderId);
+
+                return;
+            }
+
+            if (order.OrderStatus != OrderStatus.Pending)
+            {
+                _logger.LogInformation(
+                    "Pedido {OrderId} ignorado. Status atual: {Status}",
+                    orderId,
+                    order.OrderStatus);
+
+                return;
+            }
+
+            order.ChangeStatus(OrderStatus.Processing);
+
+            await orderRepository.Update(
+                order,
+                cancellationToken);
+
+            _logger.LogInformation(
+                "Pedido {OrderId} alterado para Processing.",
+                orderId);
+        }
+
+        // Simula o processamento assíncrono
         await Task.Delay(
             TimeSpan.FromSeconds(5),
             cancellationToken);
 
-        order.OrderStatus = OrderStatus.Completed;
+        // Segundo escopo: buscar novamente e mudar para Completed
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var orderRepository = scope.ServiceProvider
+                .GetRequiredService<IOrderService>();
 
-        await orderRepository.Update(
-            order,
-            cancellationToken);
+            var order = await orderRepository.GetById(
+                orderId,
+                cancellationToken);
 
-        _logger.LogInformation(
-            "Pedido {OrderId} alterado para Finalizado.",
-            orderId);
+            if (order is null)
+            {
+                _logger.LogWarning(
+                    "Pedido {OrderId} não encontrado ao finalizar.",
+                    orderId);
+
+                return;
+            }
+
+            if (order.OrderStatus != OrderStatus.Processing)
+            {
+                _logger.LogInformation(
+                    "Pedido {OrderId} não pode ser finalizado. Status atual: {Status}",
+                    orderId,
+                    order.OrderStatus);
+
+                return;
+            }
+
+            order.ChangeStatus(OrderStatus.Completed);
+
+            await orderRepository.Update(
+                order,
+                cancellationToken);
+
+            _logger.LogInformation(
+                "Pedido {OrderId} alterado para Completed.",
+                orderId);
+        }
     }
 }

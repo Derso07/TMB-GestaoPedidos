@@ -23,13 +23,9 @@ public class CreateOrderService
         decimal value,
         CancellationToken cancellationToken)
     {
-        Order order = new Order
-        {
-            Customer = costumer,
-            Product = product,
-            Value = value,
-            OrderStatus = OrderStatus.Pending,
-        };
+        Order order = new Order(costumer,
+            product,
+            value);
 
         await _orderService.Insert(order, cancellationToken);
 
