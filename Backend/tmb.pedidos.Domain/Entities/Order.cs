@@ -4,6 +4,18 @@ namespace tmb.pedidos.Domain.Entities;
 
 public class Order : Entity
 {
+    public Order()
+    {}
+    
+    public Order(string customer, string product, decimal value)
+    {
+        Customer = customer;
+        Product = product;
+        Value = value;
+        OrderStatus = OrderStatus.pending;
+        CreatOn  = DateTime.UtcNow;
+    }
+    
     public string Customer { get; set; }
     public string Product { get; set; }
     public decimal Value { get; set; }

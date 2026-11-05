@@ -1,7 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using tmb.pedidos.Domain.Interfaces;
 using tmb.pedidos.Infrastructure.Persistence;
+using tmb.pedidos.Infrastructure.Repositories;
 
 namespace tmb.pedidos.Infrastructure.Module;
 
@@ -11,6 +13,7 @@ namespace tmb.pedidos.Infrastructure.Module;
         {
             services.AddServices(configuration);
 
+            services.AddScoped<IOrderService, OrderRepository>();
             return services;
         }
 

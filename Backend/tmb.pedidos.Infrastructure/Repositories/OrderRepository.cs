@@ -14,18 +14,18 @@ public class OrderRepository : IOrderService
         _pedidosDbContext = pedidosDbContext;
     }
 
-    public async Task Insert(Order order)
+    public async Task Insert(Order order, CancellationToken  cancellationToken)
     {
-        await _pedidosDbContext.AddAsync(order);
-        await _pedidosDbContext.SaveChangesAsync();
+        await _pedidosDbContext.AddAsync(order,cancellationToken);
+        await _pedidosDbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<List<Order>> GetAll()
+    public async Task<List<Order>> GetAll(CancellationToken cancellationToken)
     {
         return await _pedidosDbContext.Orders.ToListAsync();
     }
 
-    public async Task<Order> GetById(Guid id)
+    public async Task<Order> GetById(Guid id,CancellationToken cancellationToken)
     {
         return await _pedidosDbContext.Orders
             .Where(o => o.Id == id)
