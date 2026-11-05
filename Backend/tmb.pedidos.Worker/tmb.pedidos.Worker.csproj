@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\tmb.pedidos.Infrastructure\tmb.pedidos.Infrastructure.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -2,6 +2,8 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using tmb.pedidos.Domain.Interfaces;
+using tmb.pedidos.Domain.Interfaces.MessagingPublish;
+using tmb.pedidos.Infrastructure.Messaging;
 using tmb.pedidos.Infrastructure.Persistence;
 using tmb.pedidos.Infrastructure.Repositories;
 
@@ -12,18 +14,23 @@ namespace tmb.pedidos.Infrastructure.Module;
         public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
         {
             services.AddServices(configuration);
-
-            services.AddScoped<IOrderService, OrderRepository>();
+            
             return services;
         }
 
         private static IServiceCollection AddServices(this IServiceCollection services, IConfiguration configuration)
         {
             var connectionString = configuration.GetConnectionString("DefaultConnection");
-
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException(
+                    "A connection string DefaultConnection não foi configurada.");
+            }
             services.AddDbContext<PedidosDbContext>(options =>
                 options.UseNpgsql(connectionString));
-
+            
+            services.AddScoped<IMessagePublisher, RabbitMqPublisher>();
+            services.AddScoped<IOrderService, OrderRepository>();
             return services;
         }
     }
