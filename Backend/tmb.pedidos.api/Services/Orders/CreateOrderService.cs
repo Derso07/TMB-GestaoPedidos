@@ -28,7 +28,7 @@ public class CreateOrderService
             Customer = costumer,
             Product = product,
             Value = value,
-            OrderStatus = OrderStatus.pending,
+            OrderStatus = OrderStatus.Pending,
         };
 
         await _orderService.Insert(order, cancellationToken);

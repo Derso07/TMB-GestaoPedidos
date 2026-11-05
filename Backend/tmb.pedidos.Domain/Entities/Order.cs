@@ -12,7 +12,7 @@ public class Order : Entity
         Customer = customer;
         Product = product;
         Value = value;
-        OrderStatus = OrderStatus.pending;
+        OrderStatus = OrderStatus.Pending;
         CreatOn  = DateTime.UtcNow;
     }
     

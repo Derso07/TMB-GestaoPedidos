@@ -20,12 +20,20 @@ public class OrderRepository : IOrderService
         await _pedidosDbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<List<Order>> GetAll(CancellationToken cancellationToken)
+    public async Task Update(Order order, CancellationToken cancellationToken)
     {
-        return await _pedidosDbContext.Orders.ToListAsync();
+        var _order = await GetById(order.Id, cancellationToken);
+        
+        _pedidosDbContext.Update(_order);
+        await _pedidosDbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<Order> GetById(Guid id,CancellationToken cancellationToken)
+    public async Task<List<Order>> GetAll(CancellationToken cancellationToken)
+    {
+        return await _pedidosDbContext.Orders.ToListAsync(cancellationToken: cancellationToken);
+    }
+
+    public async Task<Order?> GetById(Guid id,CancellationToken cancellationToken)
     {
         return await _pedidosDbContext.Orders
             .Where(o => o.Id == id)
