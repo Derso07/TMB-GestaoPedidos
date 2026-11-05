@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <UserSecretsId>dotnet-tmb.pedidos.Worker-52005fe0-f4b2-4cea-867f-0d177a284727</UserSecretsId>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1"/>
+        <PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\tmb.pedidos.Domain\tmb.pedidos.Domain.csproj" />
+      <ProjectReference Include="..\tmb.pedidos.Infrastructure\tmb.pedidos.Infrastructure.csproj" />
+    </ItemGroup>
+</Project>
