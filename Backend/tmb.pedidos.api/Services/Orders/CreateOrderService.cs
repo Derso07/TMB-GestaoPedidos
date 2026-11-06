@@ -1,45 +1,43 @@
 ﻿using tmb.pedidos.Domain.Entities;
-using tmb.pedidos.Domain.Enum;
 using tmb.pedidos.Domain.Interfaces;
-using tmb.pedidos.Domain.Interfaces.MessagingPublish;
 using tmb.pedidos.Domain.Messaging;
 
 namespace tmb.pedidos.API.Services.Orders;
 
 public class CreateOrderService
 {
-    private readonly IOrderService  _orderService;
-    private readonly IMessagePublisher _messagePublisher;
+    private readonly IOrderService _orderService;
 
-    public CreateOrderService(IOrderService orderService, IMessagePublisher messagePublisher)
+    public CreateOrderService(
+        IOrderService orderService)
     {
         _orderService = orderService;
-        _messagePublisher = messagePublisher;
     }
 
     public async Task<Order> CreateAsync(
-        string costumer,
+        string customer,
         string product,
         decimal value,
         CancellationToken cancellationToken)
     {
-        Order order = new Order(costumer,
+        var order = new Order(
+            customer,
             product,
             value);
 
-        await _orderService.Insert(order, cancellationToken);
-
-        OrderCreatedMessage message = new OrderCreatedMessage()
+        var message = new OrderCreatedMessage
         {
             OrderId = order.Id,
             CorrelationId = order.Id,
             EventType = "OrderCreated",
-            OccurredAt = DateTime.UtcNow,
+            OccurredAt = DateTime.UtcNow
         };
-        
-        await _messagePublisher.PublishOrderCreatedAsync(message, 
+
+        await _orderService.InsertWithOutboxAsync(
+            order,
+            message,
             cancellationToken);
-        
+
         return order;
     }
 }

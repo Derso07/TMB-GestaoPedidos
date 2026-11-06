@@ -1,74 +1,76 @@
 # TMB — Gestão de Pedidos
 
-Aplicação desenvolvida para o desafio técnico da TMB. O sistema permite criar pedidos, consultar detalhes e acompanhar o processamento assíncrono por meio de uma API .NET, RabbitMQ, um Worker e uma aplicação React.
+Aplicação desenvolvida para o desafio técnico da TMB. Permite criar pedidos, consultar detalhes e acompanhar o processamento assíncrono por meio de uma API .NET, RabbitMQ, Worker .NET e frontend React.
 
----
+Fluxo do pedido:
+
+```text
+Pending → Processing → Completed
+```
+
 ## Funcionalidades
 
-- Criação de pedidos;
-- Listagem de pedidos;
-- Consulta por ID;
+- Criar, listar e consultar pedidos por ID;
 - Histórico de alterações de status;
 - Processamento assíncrono com Worker;
-- Comunicação por RabbitMQ;
-- Persistência em PostgreSQL;
-- Atualização automática no frontend por polling;
-- Modal de detalhes e notificações de alteração de status;
+- RabbitMQ com Outbox Pattern;
+- PostgreSQL com Entity Framework Core;
+- Frontend React com polling a cada três segundos;
+- Modal de detalhes e notificações de status;
 - Migrations automáticas;
 - Health check da API;
-- Ambiente completo executável com Docker Compose;
-- Administração do banco com pgAdmin.
-
----
+- Ambiente completo com Docker Compose;
+- Administração do banco pelo pgAdmin.
 
 ## Tecnologias
 
-- .NET 8 e ASP.NET Core Web API;
+- .NET 8 / ASP.NET Core Web API;
 - .NET Worker Service;
 - Entity Framework Core;
 - PostgreSQL 16;
 - RabbitMQ 3;
 - React, TypeScript e Vite;
-- Nginx;
 - Docker e Docker Compose;
 - pgAdmin.
-
----
 
 ## Arquitetura
 
 ```mermaid
 flowchart LR
-    Browser[ navegador ] --> Frontend[React + Vite]
+    Browser[Navegador] --> Frontend[React + Vite]
     Frontend --> API[ASP.NET Core API]
-    API --> PostgreSQL[(PostgreSQL)]
-    API --> RabbitMQ[RabbitMQ]
+    API --> Database[(PostgreSQL)]
+    API --> Outbox[(outbox_messages)]
+    Outbox --> Publisher[Outbox Publisher]
+    Publisher --> RabbitMQ[RabbitMQ]
     RabbitMQ --> Worker[.NET Worker]
-    Worker --> PostgreSQL
-    PgAdmin[pgAdmin] --> PostgreSQL
+    Worker --> Database
+    PgAdmin[pgAdmin] --> Database
 ```
 
-O fluxo de processamento é:
+O fluxo de mensageria é:
 
 ```text
-Frontend → API → PostgreSQL
-              ↓
-          RabbitMQ → Worker → PostgreSQL
+Frontend
+   ↓
+API
+   ↓
+Order + History + OutboxMessage
+   ↓
+Outbox Publisher
+   ↓
+RabbitMQ
+   ↓
+Worker
+   ↓
+Processing → Completed
 ```
 
-Dentro do Docker Compose, os serviços se comunicam pelos nomes:
+A API não publica diretamente no RabbitMQ. Ela salva o pedido, o histórico inicial e o evento na tabela `outbox_messages` dentro da mesma transação. O `OutboxPublisher` publica os eventos pendentes e marca `ProcessedOnUtc` somente após a publicação.
 
-```text
-postgres
-rabbitmq
-api
-frontend
-pgadmin
-```
+Se o RabbitMQ estiver indisponível, o pedido permanece salvo e o evento fica pendente para nova tentativa.
 
----
-
-## Estrutura do projeto
+## Estrutura
 
 ```text
 TMB-Gestão de Pedidos/
@@ -85,130 +87,78 @@ TMB-Gestão de Pedidos/
 └── README.md
 ```
 
-Os projetos possuem Dockerfiles próprios para a API, o Worker e o frontend.
-
----
-
 ## Pré-requisitos
 
 - Docker Desktop instalado e em execução;
 - Docker Compose v2;
 - Navegador web.
 
-Verifique a instalação:
+Verifique:
 
 ```powershell
 docker --version
 docker compose version
 ```
 
----
+## Configuração e segurança
 
-## Configuração de ambiente e segurança
+As credenciais não devem ser armazenadas no código-fonte. O projeto utiliza `.env` local e `.env.example` como modelo.
 
-As credenciais não devem ser armazenadas diretamente no código-fonte, no `docker-compose.yml`, no frontend ou no README.
-
-O projeto utiliza o arquivo `.env` para configuração local. O arquivo `.env.example` contém apenas o modelo das variáveis e pode ser versionado.
-
-Crie o `.env` na raiz do projeto:
+Crie o `.env`:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Exemplo de configuração local:
+Exemplo de `.env.example`:
 
 ```env
-# PostgreSQL
 POSTGRES_DB=schema
 POSTGRES_USER=user
-POSTGRES_PASSWORD=pass
+POSTGRES_PASSWORD=change-me
 POSTGRES_PORT=5432
 
-# RabbitMQ
 RABBITMQ_USER=user
-RABBITMQ_PASSWORD=pass
+RABBITMQ_PASSWORD=change-me
 RABBITMQ_PORT=5672
 RABBITMQ_MANAGEMENT_PORT=15672
 
-# API e frontend
 API_PORT=8080
 FRONTEND_PORT=5173
 
-# pgAdmin
 PGADMIN_PORT=5050
 PGADMIN_EMAIL=admin@example.com
-PGADMIN_PASSWORD=admin123
+PGADMIN_PASSWORD=change-me
 ```
 
-O arquivo `.env` deve estar no `.gitignore`:
+O `.env` deve estar no `.gitignore`:
 
 ```gitignore
 .env
 .env.*
 !.env.example
+
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
 ```
 
-Também não devem ser versionados:
+Variáveis `VITE_*` ficam visíveis no navegador. Nunca coloque senhas, tokens ou chaves de API no frontend.
 
-```text
-bin/
-obj/
-node_modules/
-dist/
-```
-
-Variáveis com o prefixo `VITE_` são incorporadas ao JavaScript e ficam visíveis no navegador. Portanto, nunca coloque no frontend:
-
-```env
-VITE_DATABASE_PASSWORD=...
-VITE_RABBITMQ_PASSWORD=...
-VITE_API_KEY=...
-```
-
-### Produção e Azure
-
-Para desenvolvimento local, o `.env` é suficiente. Em produção, recomenda-se utilizar um gerenciador de segredos, evitando salvar senhas no servidor, no repositório ou em arquivos de configuração.
-
-Algumas alternativas são:
-
-- **Docker Secrets**, para disponibilizar credenciais como arquivos em `/run/secrets/`;
-- **Azure Key Vault**, para armazenar e recuperar segredos com identidade gerenciada;
-- **Azure Container Apps, Azure App Service ou Azure DevOps**, utilizando Secret Variables/Application Settings;
-- GitHub Actions Secrets ou outro gerenciador de secrets do pipeline.
-
-Exemplos de informações que devem ser armazenadas como secrets:
-
-```text
-POSTGRES_PASSWORD
-RABBITMQ_PASSWORD
-PGADMIN_PASSWORD
-Connection strings
-API keys
-JWT signing keys
-```
-
-O `.env` utilizado localmente não deve ser tratado como solução definitiva de produção. Em um ambiente Azure, uma alternativa adequada seria armazenar os valores no Azure Key Vault e injetá-los na aplicação por meio de configurações do serviço ou de identidade gerenciada.
-
----
+Em produção, recomenda-se utilizar Docker Secrets, Azure Key Vault, Azure App Service/Container Apps Secret Variables ou secrets do pipeline, como GitHub Actions Secrets.
 
 ## Execução com Docker Compose
 
-Execute os comandos na raiz do projeto, onde está o `docker-compose.yml`.
-
-Valide a configuração:
+Execute na raiz do projeto:
 
 ```powershell
 docker compose config
-```
-
-Construa e inicie todos os serviços:
-
-```powershell
 docker compose up --build -d
+docker compose ps -a
 ```
 
-O resultado esperado é semelhante a:
+Containers esperados:
 
 ```text
 tmb-api        Up (healthy)
@@ -219,23 +169,21 @@ tmb-rabbitmq   Up (healthy)
 tmb-worker     Up
 ```
 
-Para parar o ambiente:
+Para parar sem apagar os dados:
 
 ```powershell
 docker compose down
 ```
 
-Para remover também os volumes e apagar os dados persistidos:
+Para apagar também os volumes e recriar o banco do zero:
 
 ```powershell
 docker compose down -v
 ```
 
-> Use `docker compose down -v` somente quando desejar recriar o banco do zero.
+> Use `down -v` somente quando realmente desejar apagar os dados persistidos.
 
----
-
-## URLs dos serviços
+## URLs
 
 | Serviço | URL |
 |---|---|
@@ -246,34 +194,7 @@ docker compose down -v
 | RabbitMQ Management | http://localhost:15672 |
 | pgAdmin | http://localhost:5050 |
 
-## Fluxo de processamento
-
-1. O usuário cria um pedido no frontend;
-2. A API valida e salva o pedido com status `Pending`;
-3. A API publica o evento de criação no RabbitMQ;
-4. O Worker consome a mensagem;
-5. O Worker altera o pedido para `Processing`;
-6. O Worker registra a alteração no histórico;
-7. Após o processamento, o Worker altera o pedido para `Completed`;
-8. O frontend identifica as mudanças por polling e atualiza a interface.
-
-O payload da mensagem contém o identificador do pedido:
-
-```json
-{
-  "orderId": "00000000-0000-0000-0000-000000000000"
-}
-```
-
-A configuração atual utiliza conceitos equivalentes a:
-
-```text
-Exchange: orders.exchange
-Queue: orders.order-created
-Routing key: order.created
-```
-
----
+As credenciais locais do RabbitMQ e pgAdmin são as configuradas no `.env`.
 
 ## API
 
@@ -303,7 +224,7 @@ Listar pedidos:
 GET /api/v1/Order
 ```
 
-Consultar pedido por ID:
+Consultar por ID:
 
 ```http
 GET /api/v1/Order/{id}
@@ -315,77 +236,156 @@ Health check:
 GET /health
 ```
 
----
+## Mensageria e Outbox
+
+Configuração utilizada:
+
+```text
+Exchange: orders.exchange
+Queue: orders.order-created
+Routing key: order.created
+```
+
+Payload do evento:
+
+```json
+{
+  "orderId": "00000000-0000-0000-0000-000000000000"
+}
+```
+
+O fluxo é:
+
+```text
+1. API cria o pedido;
+2. API salva pedido, histórico e Outbox na mesma transação;
+3. Outbox Publisher busca mensagens pendentes;
+4. RabbitMqPublisher publica o evento;
+5. Outbox é marcado como processado;
+6. Worker consome a mensagem;
+7. Worker atualiza Processing e Completed;
+8. Histórico é persistido.
+```
+
+A tabela `outbox_messages` registra:
+
+```text
+ProcessedOnUtc
+Attempts
+LastError
+NextAttemptOnUtc
+```
+
+Consulta para acompanhar o Outbox:
+
+```sql
+SELECT
+    "Id",
+    "Type",
+    "ProcessedOnUtc",
+    "Attempts",
+    "LastError",
+    "NextAttemptOnUtc"
+FROM outbox_messages
+ORDER BY "OccurredOnUtc" DESC;
+```
+
+Eventos com `ProcessedOnUtc = NULL` ainda estão pendentes.
 
 ## Frontend e polling
 
-O frontend consulta a API a cada três segundos enquanto houver pedidos com status:
-
-```text
-Pending
-Processing
-```
-
-A lista é consultada por:
+Enquanto houver pedidos com status `Pending` ou `Processing`, o frontend consulta a API a cada três segundos:
 
 ```http
 GET /api/v1/Order
 ```
 
-Quando o usuário abre a modal de detalhes, o pedido selecionado pode ser atualizado por:
+A modal de detalhes também atualiza o pedido selecionado por:
 
 ```http
 GET /api/v1/Order/{id}
 ```
 
-A diferença entre polling e notificação é:
+O polling consulta a API; a notificação informa ao usuário quando o status muda.
 
-```text
-Polling:
-consulta periodicamente a API.
-
-Notificação:
-informa ao usuário que o status retornado mudou.
-```
-
-Quando todos os pedidos estão finalizados, as consultas automáticas são interrompidas. O usuário ainda pode atualizar a lista manualmente.
-
----
-
-## Banco de dados e migrations
+## Banco de dados
 
 O PostgreSQL armazena:
 
-- Dados dos pedidos;
-- Status atual;
-- Data de criação;
-- Histórico de status.
+- pedidos;
+- status atual;
+- histórico de status;
+- eventos pendentes do Outbox.
 
-A API executa as migrations na inicialização, depois que o PostgreSQL está saudável.
+A API aplica as migrations na inicialização.
 
-O volume utilizado pelo banco é:
-
-```text
-tmb-gestodepedidos_postgres_data
-```
-
-Para conectar pelo pgAdmin, use:
+Para conectar pelo pgAdmin:
 
 ```text
 Host: postgres
 Porta: 5432
 Database: tmb_pedidos
-Usuário: postgres
-Senha: postgres
+Usuário: valor do POSTGRES_USER
+Senha: valor do POSTGRES_PASSWORD
 ```
 
-Dentro do pgAdmin, o host deve ser `postgres`, e não `localhost`, pois o pgAdmin também é executado dentro da rede Docker.
+Dentro do pgAdmin, use `postgres` como host, não `localhost`.
 
----
+## Testes
+
+Execute os testes unitários com xUnit:
+
+```powershell
+dotnet test ".\Backend\tmb.pedidos.api\tmb.pedidos.api.sln" --verbosity normal
+```
+
+Os testes cobrem:
+
+- criação da entidade `Order`;
+- status inicial `Pending`;
+- histórico;
+- transições `Pending → Processing → Completed`;
+- transições inválidas;
+- processamento do Worker;
+- pedido inexistente;
+- idempotência para pedidos `Processing` e `Completed`.
+
+Teste manual do Outbox:
+
+```powershell
+docker compose stop rabbitmq
+```
+
+Crie um pedido e confirme que ele foi salvo com o evento pendente. Depois reative o RabbitMQ:
+
+```powershell
+docker compose start rabbitmq
+docker compose logs -f worker
+```
+
+O `OutboxPublisher` deverá publicar o evento pendente e o Worker deverá concluir o pedido.
+
+## Logs
+
+```powershell
+docker compose logs -f
+```
+
+```powershell
+docker compose logs -f api
+docker compose logs -f worker
+docker compose logs -f rabbitmq
+```
+
+Status dos containers:
+
+```powershell
+docker compose ps -a
+```
 
 ## Execução local sem Docker
 
-Para executar localmente, PostgreSQL e RabbitMQ precisam estar disponíveis no computador.
+PostgreSQL e RabbitMQ precisam estar disponíveis localmente.
 
 API:
 
@@ -407,49 +407,16 @@ npm install
 npm run dev
 ```
 
-Para compilar o backend:
+## Melhorias futuras
 
-```powershell
-dotnet restore ".\Backend\tmb.pedidos.sln"
-dotnet build ".\Backend\tmb.pedidos.sln"
-```
-
-Para compilar o frontend:
-
-```powershell
-cd ".\Frontend\tmb-pedidos-web"
-npm run build
-```
-
----
-
-## Decisões técnicas
-
-- A API e o Worker foram separados para manter o processamento assíncrono fora do ciclo da requisição HTTP;
-- PostgreSQL foi utilizado para persistir pedidos e histórico;
-- RabbitMQ foi utilizado para desacoplar a criação do pedido do processamento;
-- Polling foi utilizado no frontend por ser simples, confiável e suficiente para a atualização de status;
-- Docker Compose permite iniciar o ambiente completo com um único comando;
-- Migrations automáticas facilitam a execução em um ambiente novo.
-
----
-
-## Limitações e evoluções futuras
-
-Possíveis evoluções:
-
-- Outbox Pattern para garantir publicação transacional;
 - SignalR com polling como fallback;
-- Testes unitários e testes de integração com containers descartáveis;
+- Testes de integração com containers descartáveis;
 - Tracing distribuído e `CorrelationId`;
-- Retry e dead-letter queue no RabbitMQ;
+- Dead-letter queue e políticas avançadas de retry;
 - Paginação e filtros;
 - Autenticação e autorização;
-- Métricas e observabilidade;
-- Integração com Azure Key Vault em produção;
-- Módulo de analytics e uso de LLM.
-
----
+- Métricas e analytics;
+- Integração com Azure Key Vault em produção.
 
 ## Licença
 

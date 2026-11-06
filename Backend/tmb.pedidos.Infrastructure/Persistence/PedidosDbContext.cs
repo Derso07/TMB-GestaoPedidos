@@ -1,27 +1,38 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using tmb.pedidos.Domain.Entities;
+using tmb.pedidos.Infrastructure.Outbox;
 
 namespace tmb.pedidos.Infrastructure.Persistence;
 
 public class PedidosDbContext : DbContext
 {
-    public PedidosDbContext(DbContextOptions<PedidosDbContext> options) :  base(options) { }
+    public PedidosDbContext(DbContextOptions<PedidosDbContext> options) : base(options)
+    {
+    }
 
-    public DbSet<Order> Orders{ get; set; }
+    public DbSet<Order> Orders { get; set; }
 
-    public DbSet<OrderStatusHistory> OrderStatusHistories{ get; set; }
+    public DbSet<OrderStatusHistory> OrderStatusHistories { get; set; }
     
-    protected override void OnModelCreating(ModelBuilder modelBuilder) 
-    { 
-        modelBuilder.Entity<Order>(entity => 
-        { 
-            entity.HasKey(e => e.Id); 
+    public DbSet<OutboxMessage> OutboxMessages { get; set; }
+
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.ApplyConfigurationsFromAssembly(
+            typeof(PedidosDbContext).Assembly);
+        
+        modelBuilder.Entity<Order>(entity =>
+        {
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.Customer).IsRequired().HasMaxLength(200);
             entity.Property(e => e.Product).IsRequired().HasMaxLength(200);
             entity.Property(e => e.Value).IsRequired().HasColumnType("numeric(18,2)");
-            entity.Property(e => e.CreatOn).IsRequired().HasDefaultValueSql("NOW()"); 
-        }); 
-        
+            entity.Property(e => e.CreatOn).IsRequired().HasDefaultValueSql("NOW()");
+        });
+
         modelBuilder.Entity<OrderStatusHistory>(entity =>
         {
             entity.ToTable("order_status_history");
@@ -57,5 +68,33 @@ public class PedidosDbContext : DbContext
                 x.ChangeAt
             });
         });
-    } 
+
+        modelBuilder.Entity<OutboxMessage>(entity =>
+            {
+                entity.ToTable("outbox_messages");
+
+                entity.HasKey(message => message.Id);
+
+                entity.Property(message => message.Type)
+                    .HasMaxLength(200)
+                    .IsRequired();
+
+                entity.Property(message => message.Payload)
+                    .IsRequired();
+
+                entity.Property(message => message.OccurredOnUtc)
+                    .IsRequired();
+
+                entity.Property(message => message.LastError)
+                    .HasMaxLength(2000);
+
+                entity.HasIndex(message =>
+                    new
+                    {
+                        message.ProcessedOnUtc,
+                        message.NextAttemptOnUtc
+                    });
+            }
+        );
+    }
 }

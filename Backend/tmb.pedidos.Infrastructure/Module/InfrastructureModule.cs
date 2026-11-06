@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using tmb.pedidos.Domain.Interfaces;
 using tmb.pedidos.Domain.Interfaces.MessagingPublish;
 using tmb.pedidos.Infrastructure.Messaging;
+using tmb.pedidos.Infrastructure.Outbox;
 using tmb.pedidos.Infrastructure.Persistence;
 using tmb.pedidos.Infrastructure.Repositories;
 
@@ -29,8 +30,12 @@ namespace tmb.pedidos.Infrastructure.Module;
             services.AddDbContext<PedidosDbContext>(options =>
                 options.UseNpgsql(connectionString));
             
-            services.AddScoped<IMessagePublisher, RabbitMqPublisher>();
             services.AddScoped<IOrderService, OrderRepository>();
+            services.AddScoped<IOutboxRepository, OutboxRepository>();
+            services.AddScoped<
+                IMessagePublisher,
+                RabbitMqPublisher>();
+
             return services;
         }
     }
