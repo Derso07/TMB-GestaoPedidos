@@ -1,5 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using tmb.pedidos.API.Services.Orders;
 using tmb.pedidos.Infrastructure.Module;
+using tmb.pedidos.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +15,8 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<CreateOrderService>();
 builder.Services.AddScoped<GetOrderByIdService>();
 builder.Services.AddScoped<GetOrdersService>();
+
+builder.Services.AddHealthChecks();
 
 builder.Services.AddCors(options =>
 {
@@ -41,6 +45,16 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+
+app.MapHealthChecks("/health");
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider
+        .GetRequiredService<PedidosDbContext>();
+
+    await dbContext.Database.MigrateAsync();
+}
 
 app.UseCors("Frontend");
 
