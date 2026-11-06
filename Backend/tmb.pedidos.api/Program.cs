@@ -14,6 +14,17 @@ builder.Services.AddScoped<CreateOrderService>();
 builder.Services.AddScoped<GetOrderByIdService>();
 builder.Services.AddScoped<GetOrdersService>();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Frontend", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:5173" )
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
@@ -30,6 +41,8 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+
+app.UseCors("Frontend");
 
 if (app.Environment.IsDevelopment())
 {
